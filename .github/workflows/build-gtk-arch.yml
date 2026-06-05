@@ -91,12 +91,22 @@ jobs:
           cargo --version
 
       - name: Build Ladybird GTK
+        continue-on-error: true
         run: |
           sudo -u builder bash -c "
             cd '$GITHUB_WORKSPACE'
             git config --global --add safe.directory '$GITHUB_WORKSPACE'
             python Meta/ladybird.py build --gui Gtk
           "
+
+      - name: Upload GTK Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gtk-logs
+          path: |
+            Build/vcpkg/buildtrees/gtk/*.log
+            Build/release/vcpkg-manifest-install.log
 
       - name: ccache Statistics
         if: always()
