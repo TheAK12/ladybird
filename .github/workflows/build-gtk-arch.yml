@@ -44,7 +44,9 @@ jobs:
             sudo \
             tar \
             unzip \
-            zip
+            zip \
+            vulkan-headers \
+            vulkan-icd-loader
 
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -80,16 +82,6 @@ jobs:
           ccache --set-config=max_size=5G
           ccache --zero-stats
 
-      - name: Diagnostics
-        run: |
-          gcc --version
-          g++ --version
-          cmake --version
-          ninja --version
-          python --version
-          rustc --version
-          cargo --version
-
       - name: Build Ladybird GTK
         continue-on-error: true
         run: |
@@ -108,22 +100,10 @@ jobs:
             Build/vcpkg/buildtrees/gtk/*.log
             Build/release/vcpkg-manifest-install.log
 
-      - name: ccache Statistics
-        if: always()
-        run: |
-          ccache --show-stats || true
-
-      - name: Verify Build
-        if: always()
-        run: |
-          find Build -type f | grep Ladybird || true
-          ls -R Build/release/bin || true
-
       - name: Package Build
         if: success()
         run: |
           mkdir package
-
           cp -r Build/release/bin package/
 
           if [ -d Base/res ]; then
@@ -138,4 +118,3 @@ jobs:
         with:
           name: ladybird-gtk-arch
           path: ladybird-gtk-arch.tar.gz
-          retention-days: 30
