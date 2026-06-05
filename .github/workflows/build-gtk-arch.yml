@@ -1,0 +1,107 @@
+name: Ladybird GTK Arch Build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    container:
+      image: archlinux:latest
+
+    env:
+      CCACHE_DIR: /tmp/ccache
+
+    steps:
+      - name: Update system
+        run: |
+          pacman -Syu --noconfirm
+
+      - name: Install dependencies
+        run: |
+          pacman -S --needed --noconfirm \
+            base-devel \
+            git \
+            cmake \
+            ninja \
+            ccache \
+            curl \
+            python \
+            rust \
+            qt6-base \
+            qt6-tools \
+            bison \
+            nasm \
+            libpulse \
+            unzip \
+            zip \
+            tar
+
+      - name: Checkout Ladybird
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/ccache
+          key: arch-gtk-ccache-${{ github.ref_name }}
+          restore-keys: |
+            arch-gtk-ccache-
+
+      - name: Configure ccache
+        run: |
+          ccache --set-config=max_size=5G
+          ccache --zero-stats
+
+      - name: Configure GTK build
+        run: |
+          export CC="ccache gcc"
+          export CXX="ccache g++"
+
+          cmake \
+            --preset Release \
+            -DLADYBIRD_GUI_FRAMEWORK=Gtk
+
+      - name: Build
+        run: |
+          export CC="ccache gcc"
+          export CXX="ccache g++"
+
+          cmake \
+            --build Build/release \
+            --parallel $(nproc)
+
+      - name: Show ccache stats
+        run: |
+          ccache --show-stats
+
+      - name: Package
+        run: |
+          mkdir artifact
+
+          cp -r Build/release/bin artifact/
+          cp -r Base/res artifact/
+
+          tar -czf \
+            ladybird-gtk-arch-linux.tar.gz \
+            artifact
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ladybird-gtk-arch-linux
+          path: ladybird-gtk-arch-linux.tar.gz
+          retention-days: 30
+
+      - name: Create Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: gtk-build-${{ github.run_number }}
+          files: ladybird-gtk-arch-linux.tar.gz
