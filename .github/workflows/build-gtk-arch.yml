@@ -10,7 +10,6 @@ jobs:
 build:
 runs-on: ubuntu-latest
 
-```
 container:
   image: archlinux:latest
 
@@ -118,4 +117,3 @@ steps:
       name: ladybird-gtk-arch
       path: ladybird-gtk-arch.tar.gz
       retention-days: 30
-```
