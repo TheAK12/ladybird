@@ -83,7 +83,6 @@ jobs:
           ccache --zero-stats
 
       - name: Build Ladybird GTK
-        continue-on-error: true
         run: |
           sudo -u builder bash -c "
             cd '$GITHUB_WORKSPACE'
@@ -91,30 +90,31 @@ jobs:
             python Meta/ladybird.py build --gui Gtk
           "
 
-      - name: Upload GTK Logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: gtk-logs
-          path: |
-            Build/vcpkg/buildtrees/gtk/*.log
-            Build/release/vcpkg-manifest-install.log
+      - name: Show Build Output
+        run: |
+          find Build/release -type f | sort
+
+      - name: Find Lagom Libraries
+        run: |
+          find Build -name 'liblagom*.so*' || true
+          find Build -name '*.so*' | head -200 || true
 
       - name: Package Build
-        if: success()
         run: |
-          mkdir package
-          cp -r Build/release/bin package/
+          mkdir -p package
+
+          cp -a Build/release/. package/
 
           if [ -d Base/res ]; then
-            cp -r Base/res package/
+            mkdir -p package/Base
+            cp -a Base/res package/Base/
           fi
 
           tar -czf ladybird-gtk-arch.tar.gz package
 
       - name: Upload Artifact
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: ladybird-gtk-arch
           path: ladybird-gtk-arch.tar.gz
+          retention-days: 30
