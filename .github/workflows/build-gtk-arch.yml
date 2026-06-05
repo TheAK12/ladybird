@@ -1,10 +1,10 @@
-name: Ladybird GTK Arch Build
+name: Ladybird GTK Arch
 
 on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -15,93 +15,105 @@ jobs:
 
     env:
       CCACHE_DIR: /tmp/ccache
+      BUILD_PRESET: Release
 
     steps:
-      - name: Update system
+      - name: Update Arch
         run: |
           pacman -Syu --noconfirm
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: |
           pacman -S --needed --noconfirm \
+            autoconf-archive \
             base-devel \
-            git \
-            cmake \
-            ninja \
+            bison \
             ccache \
+            cmake \
             curl \
+            git \
+            less \
+            libgl \
+            libpulse \
+            nasm \
+            ninja \
             python \
-            rust \
             qt6-base \
             qt6-tools \
-            bison \
-            nasm \
-            libpulse \
+            rust \
+            tar \
             unzip \
-            zip \
-            tar
+            zip
 
-      - name: Checkout Ladybird
+      - name: Checkout Repository
         uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           submodules: recursive
+
+      - name: Sync Submodules
+        run: |
+          git submodule sync --recursive
+          git submodule update --init --recursive
 
       - name: Restore ccache
         uses: actions/cache@v4
         with:
           path: /tmp/ccache
-          key: arch-gtk-ccache-${{ github.ref_name }}
+          key: ccache-${{ runner.os }}-${{ github.ref_name }}
           restore-keys: |
-            arch-gtk-ccache-
+            ccache-${{ runner.os }}-
+
+      - name: Diagnostics
+        run: |
+          gcc --version
+          g++ --version
+          cmake --version
+          ninja --version
+          python --version
+          rustc --version
+          cargo --version
+
+          echo "===== Repository ====="
+          ls -la
+
+          echo "===== Submodules ====="
+          git submodule status
 
       - name: Configure ccache
         run: |
           ccache --set-config=max_size=5G
           ccache --zero-stats
 
-      - name: Configure GTK build
+      - name: Build Ladybird GTK
         run: |
-          export CC="ccache gcc"
-          export CXX="ccache g++"
+          python Meta/ladybird.py build --gui Gtk
 
-          cmake \
-            --preset Release \
-            -DLADYBIRD_GUI_FRAMEWORK=Gtk
-
-      - name: Build
+      - name: ccache Statistics
+        if: always()
         run: |
-          export CC="ccache gcc"
-          export CXX="ccache g++"
+          ccache --show-stats || true
 
-          cmake \
-            --build Build/release \
-            --parallel $(nproc)
-
-      - name: Show ccache stats
+      - name: Verify Build
         run: |
-          ccache --show-stats
+          find Build -type f | grep Ladybird || true
+          ls -R Build/release/bin || true
 
-      - name: Package
+      - name: Package Build
         run: |
-          mkdir artifact
+          mkdir package
 
-          cp -r Build/release/bin artifact/
-          cp -r Base/res artifact/
+          cp -r Build/release/bin package/
 
-          tar -czf \
-            ladybird-gtk-arch-linux.tar.gz \
-            artifact
+          if [ -d Base/res ]; then
+            cp -r Base/res package/
+          fi
+
+          tar -czf ladybird-gtk-arch.tar.gz package
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ladybird-gtk-arch-linux
-          path: ladybird-gtk-arch-linux.tar.gz
+          name: ladybird-gtk-arch
+          path: ladybird-gtk-arch.tar.gz
           retention-days: 30
-
-      - name: Create Release
-        if: github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: gtk-build-${{ github.run_number }}
-          files: ladybird-gtk-arch-linux.tar.gz
