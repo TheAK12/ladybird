@@ -41,6 +41,7 @@ jobs:
             qt6-base \
             qt6-tools \
             rust \
+            sudo \
             tar \
             unzip \
             zip
@@ -55,6 +56,17 @@ jobs:
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
+      - name: Create Builder User
+        run: |
+          useradd -m -s /bin/bash builder
+
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+
+          mkdir -p /tmp/ccache
+          chown -R builder:builder /tmp/ccache
+
+          echo "builder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
       - name: Restore ccache
         uses: actions/cache@v4
         with:
@@ -62,6 +74,11 @@ jobs:
           key: ccache-${{ runner.os }}-${{ github.ref_name }}
           restore-keys: |
             ccache-${{ runner.os }}-
+
+      - name: Configure ccache
+        run: |
+          ccache --set-config=max_size=5G
+          ccache --zero-stats
 
       - name: Diagnostics
         run: |
@@ -73,20 +90,13 @@ jobs:
           rustc --version
           cargo --version
 
-          echo "===== Repository ====="
-          ls -la
-
-          echo "===== Submodules ====="
-          git submodule status || true
-
-      - name: Configure ccache
-        run: |
-          ccache --set-config=max_size=5G
-          ccache --zero-stats
-
       - name: Build Ladybird GTK
         run: |
-          python Meta/ladybird.py build --gui Gtk
+          sudo -u builder bash -c "
+            cd '$GITHUB_WORKSPACE'
+            git config --global --add safe.directory '$GITHUB_WORKSPACE'
+            python Meta/ladybird.py build --gui Gtk
+          "
 
       - name: ccache Statistics
         if: always()
