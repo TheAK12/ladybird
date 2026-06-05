@@ -1,119 +1,121 @@
 name: Ladybird GTK Arch
 
 on:
-  workflow_dispatch:
+workflow_dispatch:
 
 permissions:
-  contents: read
+contents: read
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+build:
+runs-on: ubuntu-latest
 
-    container:
-      image: archlinux:latest
+```
+container:
+  image: archlinux:latest
 
-    env:
-      CCACHE_DIR: /tmp/ccache
-      BUILD_PRESET: Release
+env:
+  CCACHE_DIR: /tmp/ccache
+  BUILD_PRESET: Release
 
-    steps:
-      - name: Update Arch
-        run: |
-          pacman -Syu --noconfirm
+steps:
+  - name: Update Arch
+    run: |
+      pacman -Syu --noconfirm
 
-      - name: Install Dependencies
-        run: |
-          pacman -S --needed --noconfirm \
-            autoconf-archive \
-            base-devel \
-            bison \
-            ccache \
-            cmake \
-            curl \
-            git \
-            less \
-            libgl \
-            libpulse \
-            nasm \
-            ninja \
-            python \
-            qt6-base \
-            qt6-tools \
-            rust \
-            tar \
-            unzip \
-            zip
+  - name: Install Dependencies
+    run: |
+      pacman -S --needed --noconfirm \
+        autoconf-archive \
+        base-devel \
+        bison \
+        ccache \
+        cmake \
+        curl \
+        git \
+        less \
+        libgl \
+        libpulse \
+        nasm \
+        ninja \
+        python \
+        qt6-base \
+        qt6-tools \
+        rust \
+        tar \
+        unzip \
+        zip
 
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          submodules: recursive
+  - name: Checkout Repository
+    uses: actions/checkout@v4
+    with:
+      fetch-depth: 0
+      submodules: recursive
 
-      - name: Sync Submodules
-        run: |
-          git submodule sync --recursive
-          git submodule update --init --recursive
+  - name: Mark Workspace Safe
+    run: |
+      git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      - name: Restore ccache
-        uses: actions/cache@v4
-        with:
-          path: /tmp/ccache
-          key: ccache-${{ runner.os }}-${{ github.ref_name }}
-          restore-keys: |
-            ccache-${{ runner.os }}-
+  - name: Restore ccache
+    uses: actions/cache@v4
+    with:
+      path: /tmp/ccache
+      key: ccache-${{ runner.os }}-${{ github.ref_name }}
+      restore-keys: |
+        ccache-${{ runner.os }}-
 
-      - name: Diagnostics
-        run: |
-          gcc --version
-          g++ --version
-          cmake --version
-          ninja --version
-          python --version
-          rustc --version
-          cargo --version
+  - name: Diagnostics
+    run: |
+      gcc --version
+      g++ --version
+      cmake --version
+      ninja --version
+      python --version
+      rustc --version
+      cargo --version
 
-          echo "===== Repository ====="
-          ls -la
+      echo "===== Repository ====="
+      ls -la
 
-          echo "===== Submodules ====="
-          git submodule status
+      echo "===== Submodules ====="
+      git submodule status || true
 
-      - name: Configure ccache
-        run: |
-          ccache --set-config=max_size=5G
-          ccache --zero-stats
+  - name: Configure ccache
+    run: |
+      ccache --set-config=max_size=5G
+      ccache --zero-stats
 
-      - name: Build Ladybird GTK
-        run: |
-          python Meta/ladybird.py build --gui Gtk
+  - name: Build Ladybird GTK
+    run: |
+      python Meta/ladybird.py build --gui Gtk
 
-      - name: ccache Statistics
-        if: always()
-        run: |
-          ccache --show-stats || true
+  - name: ccache Statistics
+    if: always()
+    run: |
+      ccache --show-stats || true
 
-      - name: Verify Build
-        run: |
-          find Build -type f | grep Ladybird || true
-          ls -R Build/release/bin || true
+  - name: Verify Build
+    if: always()
+    run: |
+      find Build -type f | grep Ladybird || true
+      ls -R Build/release/bin || true
 
-      - name: Package Build
-        run: |
-          mkdir package
+  - name: Package Build
+    run: |
+      mkdir package
 
-          cp -r Build/release/bin package/
+      cp -r Build/release/bin package/
 
-          if [ -d Base/res ]; then
-            cp -r Base/res package/
-          fi
+      if [ -d Base/res ]; then
+        cp -r Base/res package/
+      fi
 
-          tar -czf ladybird-gtk-arch.tar.gz package
+      tar -czf ladybird-gtk-arch.tar.gz package
 
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ladybird-gtk-arch
-          path: ladybird-gtk-arch.tar.gz
-          retention-days: 30
+  - name: Upload Artifact
+    uses: actions/upload-artifact@v4
+    with:
+      name: ladybird-gtk-arch
+      path: ladybird-gtk-arch.tar.gz
+      retention-days: 30
+```
